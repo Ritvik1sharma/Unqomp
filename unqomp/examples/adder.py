@@ -1,7 +1,21 @@
 # built from https://github.com/quantumlib/Cirq/blob/master/examples/basic_arithmetic.py
 from qiskit.circuit import QuantumRegister, QuantumCircuit
-
+from unqomp.dotConvertor import dotConvertor
 from unqomp.ancillaallocation import AncillaRegister, AncillaCircuit
+
+from qiskit.circuit.library import RCCXGate, IGate, CCXGate
+
+class CustomCCXGate(CCXGate):
+    def definition(self):
+        # This is the trick to prevent decomposition.
+        # Returning the gate itself prevents it from being decomposed further.
+        self._definition = None
+
+# Create a custom Toffoli (CCX) gate with no decomposition.
+ccx = CustomCCXGate() #to_mutable()
+cust_ccx = CustomCCXGate() # .to_mutable()
+ccx._definition = None
+cust_ccx._definition = None
 
 def makesAdder(num_qubits):
     #[a, b]: b = a + b, a and b made of num_qubits each
@@ -11,6 +25,7 @@ def makesAdder(num_qubits):
         neg_mct.cx(1, 2)
         neg_mct.ccx(0, 2, 3)
         neg_mct.cx(1, 2)
+        #print(neg_mct.to_ancilla_gate(True))
         return neg_mct.to_ancilla_gate(True)
 
     def carry_gate():
@@ -37,7 +52,9 @@ def makesAdder(num_qubits):
         circuit.append(carry_gate(), [c[i], a[i], b[i], c[i+1]])
         circuit.append(sum_gate(), [c[i], a[i], b[i]])
     circuit.append(sum_gate(), [c[num_qubits-1], a[num_qubits-1], b[num_qubits-1]])
-
+    print("======================================================================")
+    print(circuit.decompose())
+    print("======================================================================")
     return circuit
 
 def makesMult(num_qubits):
@@ -92,12 +109,17 @@ def makesCirqAdder(n):
     circuit = QuantumCircuit(a, b, c)
 
     for i in range(n-1):
+        print([c[i], a[i], b[i], c[i+1]])
         circuit.append(carry_gate(), [c[i], a[i], b[i], c[i+1]])
+    print([c[n-1], a[n-1], b[n-1]])
     circuit.append(carry_sum(), [c[n-1], a[n-1], b[n-1]])
     for i in range(n-2, -1, -1):
+        print([c[i], a[i], b[i], c[i+1]])
         circuit.append(uncarry(), [c[i], a[i], b[i], c[i+1]])
+        print([c[i], a[i], b[i]])
         circuit.append(carry_sum(), [c[i], a[i], b[i]])
-
+    # dotConvertor(circuit.decompose(), "adder" + str(n) + "_graph")
+    # print(circuit.decompose())
     return circuit
 
 def makesCirqMult(num_qubits):
@@ -107,9 +129,9 @@ def makesCirqMult(num_qubits):
     y = QuantumRegister(num_qubits)
     x = QuantumRegister(num_qubits)
     a = QuantumRegister(num_qubits)
-    anc = QuantumRegister(num_qubits)
+    anc = AncillaRegister(num_qubits)
 
-    circuit = QuantumCircuit(b, y, x, a, anc)
+    circuit = AncillaCircuit(b, y, x, a, anc)
 
     for i, x_i in enumerate(x):
         # a = (y*(2**i))*x_i
@@ -120,5 +142,4 @@ def makesCirqMult(num_qubits):
         # a = 0
         for a_qubit, y_qubit in zip(a[i:], y[:num_qubits-i]):
             circuit.ccx(x_i, y_qubit, a_qubit)
-
     return circuit

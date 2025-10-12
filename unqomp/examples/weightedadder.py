@@ -5,6 +5,26 @@ import numpy as np
 from unqomp.uncomputation import uncomputeAllAncillas
 from unqomp.ancillaallocation import AncillaRegister, AncillaCircuit
 
+
+from qiskit.circuit.library import RCCXGate, IGate, CCXGate, MCXGate
+
+# class CustomCCXGate(CCXGate):
+#     def definition(self):
+#         # This is the trick to prevent decomposition.
+#         # Returning the gate itself prevents it from being decomposed further.
+#         self._definition = None
+        
+# class CustomMCXGate(MCXGate):
+#     def definition(self):
+#         # This is the trick to prevent decomposition.
+#         # Returning the gate itself prevents it from being decomposed further.
+#         self._definition = None
+
+# # Create a custom Toffoli (CCX) gate with no decomposition.
+# ccx = CustomCCXGate()
+# mcx = CustomMCXGate
+
+
 def makeWeightedAdder(num_state_qubits, weights):
     # Straightforward implementation using Unqomp, uses less gate but more qubits
     num_sum_qubits = int(np.floor(np.log2(sum(weights))) + 1) if sum(weights) > 0 else 1 
@@ -216,10 +236,8 @@ def makeWeightedAdderWOExtraCtrlsQb(num_state_qubits, weights):
 
     neg_mct_g = neg_mct_gate([1, 2])
     mct_g = neg_mct_gate([])
-
     circuit.addQfreeGate(neg_mct_g)
     circuit.addQfreeGate(mct_g)
-
     # loop over state qubits and corresponding weights
     for i, weight in enumerate(weights):
         # only act if non-trivial weight

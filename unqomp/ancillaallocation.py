@@ -1,7 +1,41 @@
 from qiskit.circuit import Qubit, QuantumRegister, QuantumCircuit, Gate
+from qiskit.circuit.library import CCXGate
 from itertools import count
 
 allocation_time_counter = count()
+from typing import (
+    Union,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Sequence,
+    Callable,
+    Mapping,
+    Iterable,
+    Any,
+    DefaultDict,
+    Literal,
+    overload,
+)
+
+class CustomCCXGate(CCXGate):
+    def definition(self):
+        # This is the trick to prevent decomposition.
+        # Returning the gate itself prevents it from being decomposed further.
+        self._definition = None
+
+ccx = CCXGate() #.to_mutable()
+ccx._definition = None 
+
+# Types that can be coerced to a valid Qubit specifier in a circuit.
+QubitSpecifier = Union[
+    Qubit,
+    QuantumRegister,
+    int,
+    slice,
+    Sequence[Union[Qubit, int]],
+]
 
 class AncillaRegister(QuantumRegister):
     def __init__(self, nb_qubits, name = None):
@@ -52,6 +86,7 @@ class AncillaCircuit(QuantumCircuit):
         else:
             QuantumCircuit.append(self, instruction, qargs, cargs)
 
+
     def add_register(self, reg):
         QuantumCircuit.add_register(self, reg)
         if isinstance(reg, AncillaRegister):
@@ -65,8 +100,28 @@ class AncillaCircuit(QuantumCircuit):
 
     def to_ancilla_gate(self, is_qfree = False):
         # self should have registers in the following order: first ctrls, then target then ancillas
+        # print(self.decompose())
+        # temp = self.decompose()
+        for idx, (instruction, qubits, clbits) in enumerate(self.data):
+            if instruction.name == 'ccx' or instruction.name == 'mcx':
+                instruction._definition = None
+            #else:
+            #    print(instruction)
+
+        #print(self)
+        #print("----")
+        #a = self.decompose() 
+        #print(a)
+        
+        #print("----")
+        #b = a.decompose()
+        #print(b)
+
+        #print("----")
+        #assert False
         gate = self.to_gate()
         extra_qfree_gates = [gate] if is_qfree else self._extra_qfree_gates
+        #print(gate)
         return AncillaGate(gate, self._nb_ancillas, extra_qfree_gates)
 
     def addQfreeGate(self, gate):
@@ -75,6 +130,20 @@ class AncillaCircuit(QuantumCircuit):
     def circuitWithUncomputation(self):
         from unqomp.uncomputation import uncomputeAllAncillas
         return uncomputeAllAncillas(self, [(gate, True) for gate in self._extra_qfree_gates])
+
+    def ccx(self,
+        control_qubit1: QubitSpecifier,
+        control_qubit2: QubitSpecifier,
+        target_qubit: QubitSpecifier,
+        ctrl_state: Union[str, int, None] = None,
+        ):
+        
+        #return self.append(ccx, [control_qubit1, control_qubit2, target_qubit])
+        return self.append(
+            CustomCCXGate(ctrl_state=ctrl_state),
+            [control_qubit1, control_qubit2, target_qubit],
+            [],
+        )
 
     def mcx(self, ctrls, target, negated_ctrls = []): #allows for negated ctrls
         from unqomp.examples.mcx import makeMCX
@@ -107,12 +176,14 @@ class AncillaCircuit(QuantumCircuit):
         n = len(ctrls[:])
         mcx_gate = None
         if len(negated_ctrls) > 0:
+            # print("negated controls")
             mcx_gate = makeNegatedMCXGate(n)
             if mcx_gate._nb_ancillas > 0:
                 anc = self.new_ancilla_register(mcx_gate._nb_ancillas)
                 self.addQfreeGate(mcx_gate._gate)
                 QuantumCircuit.append(self, mcx_gate._gate, [*ctrls[:], *anc[:], target])
         else:
+            # print("nmeghated controls ")
             mcx_gate = makeMCX(n).to_ancilla_gate()
             self.append(mcx_gate, [*ctrls[:], target])
 

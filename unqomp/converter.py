@@ -1,10 +1,21 @@
 from qiskit.circuit import Qubit, QuantumRegister
-from qiskit.circuit.library import RCCXGate, IGate
-from qiskit.tools.visualization import dag_drawer
+from qiskit.circuit.library import RCCXGate, IGate, CCXGate
+from qiskit.visualization import dag_drawer
+# from qiskit.tools.visualization import dag_drawer
 from qiskit.dagcircuit import DAGCircuit
 from unqomp.dependencygraph import DependencyGraph, Node, Edge, InitGate, DeallocateGate
 from unqomp.ancillaallocation import AncillaRegister
 from queue import PriorityQueue
+
+class CustomCCXGate(CCXGate):
+    def definition(self):
+        # This is the trick to prevent decomposition.
+        # Returning the gate itself prevents it from being decomposed further.
+        self._definition = None
+
+# Create a custom Toffoli (CCX) gate with no decomposition.
+custom_ccx = CustomCCXGate()
+
 
 class ConverterDependencyGraph:
     # maybe allow for extra custom gates (for which we'll need their inverse + ctrls/target + qfree or not), as arguments to ConverterDependencyGraph constructor
@@ -64,9 +75,9 @@ class ConverterDependencyGraph:
         creg = set()
         for instruction in node.op.definition:
             for qubit in instruction[1]:
-                if not qubit.register in qreg:
-                    node_decomposition.add_qreg(qubit.register)
-                    qreg.add(qubit.register)
+                if not qubit._register in qreg:
+                    node_decomposition.add_qreg(qubit._register)
+                    qreg.add(qubit._register)
             for cbit in instruction[2]:
                  if not cbit.register in creg:
                     node_decomposition.add_creg(cbit.register)
@@ -95,7 +106,7 @@ class ConverterDependencyGraph:
                 node = Node(dag_node.wire.register, dag_node.wire.index, InitGate(), 0, 0)
                 latest_node_on_wire[node.variable_name] = node
                 dep_g.addRootNode(node)
-            elif dag_node.type == 'op':
+            elif dag_node.type == 'op': # type == 'op':
                 modified_qubit = dag_node.qargs[-1]
                 wire_name = Node.wireName(modified_qubit.register, modified_qubit.index)
                 assert self._isKnownInstruction(dag_node.op)
@@ -252,7 +263,7 @@ class ConverterDependencyGraph:
 
 def _replaceCCXs(gate):
         if gate.name == 'ccx':
-            return RCCXGate()
+            return CCXGate() # RCCXGate() # custom_ccx # CCXGate() # RCCXGate()
         if gate.definition is None:
             return gate
 
@@ -260,4 +271,4 @@ def _replaceCCXs(gate):
                                          for inst, qargs, cargs in gate.definition]
         return gate
 
-        
+       

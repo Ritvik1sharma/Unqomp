@@ -1,4 +1,5 @@
 import argparse
+from unqomp.dotConvertor import qasmConvertor, dotConvertor
 
 parser = argparse.ArgumentParser(description='Compares, for all examples implemented in unqomp/examples/, the circuits encoded without Unqomp and with it, as shown in Table 2. By default, outputs the % saved by Unqomp.')
 parser.add_argument('--absolute', dest='relative_numbers', action='store_false',
@@ -7,6 +8,17 @@ parser.set_defaults(relative_numbers=True)
 args = parser.parse_args()
 
 relative_numbers = args.relative_numbers
+
+def help_res(circuit):
+    depth = circuit.depth()
+    single_qubit_gates = 0
+    two_qubit_gates = 0
+    for gate in circuit.data:
+        if gate[0].num_qubits == 1:
+            single_qubit_gates += 1
+        elif gate[0].num_qubits == 2:
+            two_qubit_gates += 1
+    return two_qubit_gates, single_qubit_gates, depth
 
 def print_relative_vals(qb_q, cx_q, u3_q, qb_u, cx_u, u3_u):
     perc_qb_saved = int(round((qb_u - qb_q) / qb_q * -100))
@@ -19,7 +31,7 @@ def dj(relative_numbers):
     import numpy as np
     from qiskit import QuantumCircuit, QuantumRegister
 
-    n = 10
+    n = 5
     circuitQiskit = dj.QiskitDJ(n)
     qcirc = circuitQiskit.construct_circuit()
 
@@ -28,6 +40,8 @@ def dj(relative_numbers):
     #qiskit
     nb_qb_qi = qcirc.num_qubits
     nb_gates_qi = qcirc.decompose().decompose().decompose().decompose().decompose().count_ops()
+    print(qcirc)
+    print(qcirc.decompose())
     if not relative_numbers:
         print(str(nb_qb_qi) + ' ; ' + str(nb_gates_qi['cx'] + nb_gates_qi['u3']) + ' ; ' + str(nb_gates_qi['cx']) + ' ; ', end = '')
 
@@ -55,7 +69,7 @@ def mcry(relative_numbers):
     circuit1 = circuit1.circuitWithUncomputation()
 
     qiskitMCRY = makeQiskitMCRY(2.0, n)
-    
+    print(qiskitMCRY)
     print('MCRY with regression bug  ; ', end = '')
    
     #qiskit buggy
@@ -151,12 +165,20 @@ def integercomparator(relative_numbers):
     from qiskit.circuit.library import IntegerComparator
     from unqomp.examples.intergercomparator import makeIntegerComparator
 
-    n = 12
-    v = 40
+    for n in [12, 6]:
+        if n == 6:
+            v = 20
+        else:
+            v = 40
 
-    circuit1 = makeIntegerComparator(n, v).circuitWithUncomputation()
+        circuit1 = makeIntegerComparator(n, v).circuitWithUncomputation()
+        qcirc = IntegerComparator(n, v)
+        dotConvertor(qcirc, "intergercomparator_" + str(n) + "_" + str(v) + "_graph")
+        dotConvertor(circuit1.decompose(), "new_intergercomparator_" + str(n) + "_" + str(v) + "_graph")
+        qasmConvertor(qcirc, "intergercomparator_" + str(n))
 
-    qcirc = IntegerComparator(n, v)
+    print(qcirc) # .decompose())
+    print(circuit1.decompose())
     print('IntegerComparator  ; ', end = '')
 
     #qiskit
@@ -182,14 +204,28 @@ def plr(relative_numbers):
 
     sys.setrecursionlimit(2000)
 
-    breakpoints = [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 14]
-    slopes = [1, 2, 3, 4, 3, 4, 3, 4, 5, 6, 4]
-    offsets =  [1, 2, 3, 4, 3, 4, 3, 4, 5, 6, 4]
-    n = 12
+    breakpoints = [1] #, 2, 3] #, 4, 5, 6, 7, 8, 9, 12, 14]
+    slopes = [1] #, 2, 3] #, 4, 3, 4, 3, 4, 5, 6, 4]
+    offsets =  [0] # , 2, 3]#, 4, 3, 4, 3, 4, 5, 6, 4]
+    n = 3
 
     circuit1 = makesPLR(n, breakpoints, slopes, offsets).circuitWithUncomputation()
 
     qcirc = PiecewiseLinearPauliRotations(n, breakpoints, slopes, offsets)
+    # print(circuit1)
+   
+    print("_________")
+    print(circuit1.decompose())
+    print(qcirc)
+    print("_________")
+
+    dotConvertor(circuit1.decompose(), "new_pld_" + str(n) + "_graph")
+    # qasmConvertor(circuit1.decompose(), "new_pld_" + str(n))
+    #print(qcirc)
+
+    print("_________")
+    #print(qcirc.decompose())
+
     print('PiecewiseLinearR  ; ', end = '')
 
     #qiskit
@@ -211,13 +247,15 @@ def ppr(relative_numbers):
     from unqomp.examples.polynomialpaulirot import makesPolyPauliRot, makesQiskitPolyPauliRot
     from qiskit.circuit.library import PolynomialPauliRotations
 
-    coeffs = [1,2,3,4,5,4,1,2,3,4,5]
-    n = 8
+    coeffs = [1,2,3,4] # ,5,4,1,2,3,4,5]
+    n = 3
 
-    circuit1 = makesPolyPauliRot(8, coeffs).circuitWithUncomputation()
+    circuit1 = makesPolyPauliRot(3, coeffs).circuitWithUncomputation()
 
-    qcirc = PolynomialPauliRotations(num_state_qubits=8, coeffs=coeffs)
+    qcirc = PolynomialPauliRotations(num_state_qubits=3, coeffs=coeffs)
     print('PolynomialPauliR with regression bug  ; ', end = '')
+    print(circuit1)
+    print(circuit1.decompose())
 
     #qiskit
     nb_qb_qi = qcirc.num_qubits
@@ -234,7 +272,7 @@ def ppr(relative_numbers):
     if relative_numbers:
         print_relative_vals(nb_qb_qi, nb_gates_qi['cx'], nb_gates_qi['u3'], nb_qb_mi, nb_gates_mi['cx'], nb_gates_mi['u3'])
 
-    #qiskit with bug fixed
+    #qiskit with bug fixe
     qiskitMCX = makesQiskitPolyPauliRot(n, coeffs)
     nb_qb_qi = qiskitMCX.num_qubits
     nb_gates_qi = qiskitMCX.decompose().decompose().decompose().decompose().decompose().count_ops()
@@ -248,54 +286,69 @@ def ppr(relative_numbers):
 def wa(relative_numbers):
     from unqomp.examples.weightedadder import makeWeightedAdder, makesQiskitWA
     from qiskit.circuit.library.arithmetic import WeightedAdder
-
-    vals = [1,2,3,2,5,6,5,3,4,5,8,2]
-    n = 12
+    vals = [1,2,3,2]#,5,6,5,3,4,5,8,2]
+    n = 4 #12
 
     circuit1 = makeWeightedAdder(n, vals).circuitWithUncomputation()
 
     qcirc = WeightedAdder(n, vals)
+    print("CIRCUIT CHECK HERE")
+    print(qcirc)
+    print("new circ")
+    print(circuit1.decompose().decompose())
+    
+    qasmConvertor(qcirc, "wa_" + str(n))
+    
+    dotConvertor(circuit1.decompose().decompose(), "new_wa_" + str(n) + "_graph")
+    dotConvertor(qcirc, "wa_" + str(n) + "_graph")
     print('WeightedAdder with regression bug  ; ', end = '')
 
     #qiskit
     nb_qb_qi = qcirc.num_qubits
     nb_gates_qi = qcirc.decompose().decompose().decompose().decompose().decompose().count_ops()
-    if not relative_numbers:
-        print(str(nb_qb_qi) + ' ; ' + str(nb_gates_qi['cx'] + nb_gates_qi['u3']) + ' ; ' + str(nb_gates_qi['cx']) + ' ; ', end = '')
+    #if not relative_numbers:
+    #    print(str(nb_qb_qi) + ' ; ' + str(nb_gates_qi['cx'] + nb_gates_qi['u3']) + ' ; ' + str(nb_gates_qi['cx']) + ' ; ', end = '')
 
     #qiskit++
     nb_qb_mi = circuit1.num_qubits
     nb_gates_mi = circuit1.decompose().decompose().decompose().decompose().decompose().count_ops()
-    if not relative_numbers:
-        print(str(nb_qb_mi) + ' ; ' + str(nb_gates_mi['cx'] + nb_gates_mi['u3']) + ' ; ' + str(nb_gates_mi['cx']))
+    #if not relative_numbers:
+    #    print(str(nb_qb_mi) + ' ; ' + str(nb_gates_mi['cx'] + nb_gates_mi['u3']) + ' ; ' + str(nb_gates_mi['cx']))
 
-    if relative_numbers:
-        print_relative_vals(nb_qb_qi, nb_gates_qi['cx'], nb_gates_qi['u3'], nb_qb_mi, nb_gates_mi['cx'], nb_gates_mi['u3'])
+    #if relative_numbers:
+    #    print_relative_vals(nb_qb_qi, nb_gates_qi['cx'], nb_gates_qi['u3'], nb_qb_mi, nb_gates_mi['cx'], nb_gates_mi['u3'])
 
     #qiskit with bug fixed
     qiskitMCX = makesQiskitWA(n, vals)
     nb_qb_qi = qiskitMCX.num_qubits
     nb_gates_qi = qiskitMCX.decompose().decompose().decompose().decompose().decompose().count_ops()
+    # print(qiskitMCX)
     print('WeightedAdder *, regression bug fixed ; ', end = '')
     if not relative_numbers:
         print(str(nb_qb_qi) + ' ; ' + str(nb_gates_qi['cx'] + nb_gates_qi['u3']) + ' ; ' + str(nb_gates_qi['cx']) + str(' ; '), end = '')
         print(str(nb_qb_mi) + ' ; ' + str(nb_gates_mi['cx'] + nb_gates_mi['u3']) + ' ; ' + str(nb_gates_mi['cx']))
-    else:
-        print_relative_vals(nb_qb_qi, nb_gates_qi['cx'], nb_gates_qi['u3'], nb_qb_mi, nb_gates_mi['cx'], nb_gates_mi['u3'])
+    #else:
+    #     print_relative_vals(nb_qb_qi, nb_gates_qi['cx'], nb_gates_qi['u3'], nb_qb_mi, nb_gates_mi['cx'], nb_gates_mi['u3'])
 
 def wasaveqb(relative_numbers):
     from unqomp.examples.weightedadder import makeWeightedAdderWOExtraCtrlsQb, makesQiskitWA
     from qiskit.circuit.library.arithmetic import WeightedAdder
 
-    vals = [1,2,3,2,5,6,5,3,4,5,8,2]
-    n = 12
+    for n in [4, 8, 12]:
+        vals = [1,2,3,2,5,6,5,3,4,5,8,2]
+        vals = vals[:n]
 
-    circuit1 = makeWeightedAdderWOExtraCtrlsQb(n, vals).circuitWithUncomputation()
-
-    qcirc = WeightedAdder(n, vals)
-    print('WeightedAdder alt. impl., with regression bug ; ', end = '')
+        circuit1 = makeWeightedAdderWOExtraCtrlsQb(n, vals).circuitWithUncomputation()
+        
+        print(circuit1.decompose())
+        qcirc = WeightedAdder(n, vals)
+        print(qcirc)
+        qasmConvertor(circuit1.decompose(), "wassaveqb_" + str(n))
+        dotConvertor(qcirc, "wassaveqb_" + str(n) + "_graph")
+        dotConvertor(circuit1.decompose(), "new_wassaveqb_" + str(n) + "_graph")
 
     #qiskit
+    print('WeightedAdder alt. impl., with regression bug ; ', end = '')
     nb_qb_qi = qcirc.num_qubits
     nb_gates_qi = qcirc.decompose().decompose().decompose().decompose().decompose().count_ops()
     if not relative_numbers:
@@ -314,7 +367,8 @@ def wasaveqb(relative_numbers):
     qiskitMCX = makesQiskitWA(n, vals)
     nb_qb_qi = qiskitMCX.num_qubits
     nb_gates_qi = qiskitMCX.decompose().decompose().decompose().decompose().decompose().count_ops()
-    print('WeightedAdder alt, impl. *, regression bug fixed  ; ', end = '')
+    # print(qiskitMCX)
+    #print('WeightedAdder alt, impl. *, regression bug fixed  ; ', end = '')
     if not relative_numbers:
         print(str(nb_qb_qi) + ' ; ' + str(nb_gates_qi['cx'] + nb_gates_qi['u3']) + ' ; ' + str(nb_gates_qi['cx']) + str(' ; '), end = '')
         print(str(nb_qb_mi) + ' ; ' + str(nb_gates_mi['cx'] + nb_gates_mi['u3']) + ' ; ' + str(nb_gates_mi['cx']))
@@ -324,65 +378,79 @@ def wasaveqb(relative_numbers):
 def adder(relative_numbers):
     from unqomp.examples.adder import makesAdder, makesMult, makesCirqAdder, makesCirqMult
 
-    n = 12
+    for n in [12, 6, 4]:  # 12 # 3
+        circuit1 = makesAdder(n).circuitWithUncomputation()
+        qcirc = makesCirqAdder(n)
+        #print(qcirc.decompose())
+        qasmConvertor(qcirc.decompose(), "adder_" + str(n))
+        dotConvertor(circuit1.decompose(), "new_adder" + str(n) + "_graph")
+        dotConvertor(qcirc.decompose(), "adder" + str(n) + "_graph")
 
-    circuit1 = makesAdder(n).circuitWithUncomputation()
 
-    qcirc = makesCirqAdder(n)
+    print(qcirc.decompose())
+    print(circuit1.decompose()) # .decompose())
     print('Adder  ; ', end = '')
+    try:
+        #qiskit
+        nb_qb_qi = qcirc.num_qubits
+        nb_gates_qi = qcirc.decompose().decompose().decompose().decompose().decompose().count_ops()
+        if not relative_numbers:
+            print(str(nb_qb_qi) + ' ; ' + str(nb_gates_qi['cx'] + nb_gates_qi['u3']) + ' ; ' + str(nb_gates_qi['cx']) + ' ; ', end = '')
 
-    #qiskit
-    nb_qb_qi = qcirc.num_qubits
-    nb_gates_qi = qcirc.decompose().decompose().decompose().decompose().decompose().count_ops()
-    if not relative_numbers:
-        print(str(nb_qb_qi) + ' ; ' + str(nb_gates_qi['cx'] + nb_gates_qi['u3']) + ' ; ' + str(nb_gates_qi['cx']) + ' ; ', end = '')
+        #qiskit++
+        nb_qb_mi = circuit1.num_qubits
+        nb_gates_mi = circuit1.decompose().decompose().decompose().decompose().decompose().count_ops()
+        if not relative_numbers:
+            print(str(nb_qb_mi) + ' ; ' + str(nb_gates_mi['cx'] + nb_gates_mi['u3']) + ' ; ' + str(nb_gates_mi['cx']))
 
-    #qiskit++
-    nb_qb_mi = circuit1.num_qubits
-    nb_gates_mi = circuit1.decompose().decompose().decompose().decompose().decompose().count_ops()
-    if not relative_numbers:
-        print(str(nb_qb_mi) + ' ; ' + str(nb_gates_mi['cx'] + nb_gates_mi['u3']) + ' ; ' + str(nb_gates_mi['cx']))
-
-    if relative_numbers:
-        print_relative_vals(nb_qb_qi, nb_gates_qi['cx'], nb_gates_qi['u3'], nb_qb_mi, nb_gates_mi['cx'], nb_gates_mi['u3'])
+        if relative_numbers:
+            print_relative_vals(nb_qb_qi, nb_gates_qi['cx'], nb_gates_qi['u3'], nb_qb_mi, nb_gates_mi['cx'], nb_gates_mi['u3'])
+    except:
+        print("cant print details")
 
 def mult(relative_numbers):
     from unqomp.examples.adder import makesAdder, makesMult, makesCirqAdder, makesCirqMult
 
-    n = 12
+    n = 3 # 12
+    for n in [3]: #, 6, 12]:
+        circuit1 = makesMult(n).circuitWithUncomputation()
+        qcirc = makesCirqMult(n)
+        print(qcirc.decompose().decompose())
+        qasmConvertor(qcirc.decompose().decompose(), "mult_" + str(n))
+        dotConvertor(circuit1.decompose().decompose(), "new_mult_" + str(n) + "_graph")
+        dotConvertor(qcirc.decompose().decompose(), "mult_" + str(n) + "_graph")
+        if n == 3:
+            print(qcirc.decompose()) 
+            print(circuit1.decompose())
+    
 
-    circuit1 = makesMult(n).circuitWithUncomputation()
-
-    qcirc = makesCirqMult(n)
     print('Multiplier  ; ', end = '')
 
     #qiskit
     nb_qb_qi = qcirc.num_qubits
     nb_gates_qi = qcirc.decompose().decompose().decompose().decompose().decompose().count_ops()
-    if not relative_numbers:
-        print(str(nb_qb_qi) + ' ; ' + str(nb_gates_qi['cx'] + nb_gates_qi['u3']) + ' ; ' + str(nb_gates_qi['cx']) + ' ; ', end = '')
+    #if not relative_numbers:
+    #    print(str(nb_qb_qi) + ' ; ' + str(nb_gates_qi['cx'] + nb_gates_qi['u3']) + ' ; ' + str(nb_gates_qi['cx']) + ' ; ', end = '')
 
     #qiskit++
     nb_qb_mi = circuit1.num_qubits
     nb_gates_mi = circuit1.decompose().decompose().decompose().decompose().decompose().count_ops()
-    if not relative_numbers:
-        print(str(nb_qb_mi) + ' ; ' + str(nb_gates_mi['cx'] + nb_gates_mi['u3']) + ' ; ' + str(nb_gates_mi['cx']))
+    #if not relative_numbers:
+    #    print(str(nb_qb_mi) + ' ; ' + str(nb_gates_mi['cx'] + nb_gates_mi['u3']) + ' ; ' + str(nb_gates_mi['cx']))
 
-    if relative_numbers:
-        print_relative_vals(nb_qb_qi, nb_gates_qi['cx'], nb_gates_qi['u3'], nb_qb_mi, nb_gates_mi['cx'], nb_gates_mi['u3'])
+    #if relative_numbers:
+    #    print_relative_vals(nb_qb_qi, nb_gates_qi['cx'], nb_gates_qi['u3'], nb_qb_mi, nb_gates_mi['cx'], nb_gates_mi['u3'])
 
 if relative_numbers:
     print("Example name ; % gates saved by Unqomp ; % CX gates saved by Unqomp ; % qubits saved by Unqomp")
 else:
     print('Example name  ;  number of qubits in Qiskit  ;  number of gates in Qiskit  ;  number of CX gates in Qiskit  ;  number of qubits with Unqomp  ;  number of gates with Unqomp  ;  number of CX gates with Unqomp')
-adder(relative_numbers)
-dj(relative_numbers)
-grover(relative_numbers)
-integercomparator(relative_numbers)
-mcry(relative_numbers)
-mcx(relative_numbers)
-mult(relative_numbers)
+
+#adder(relative_numbers)
+#integercomparator(relative_numbers)
+#mult(relative_numbers)
+# mcry(relative_numbers)
+
 plr(relative_numbers)
-ppr(relative_numbers)
-wa(relative_numbers)
-wasaveqb(relative_numbers)
+#wa(relative_numbers)
+#wasaveqb(relative_numbers)

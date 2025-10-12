@@ -23,6 +23,7 @@ def _get_twos_complement(n, val):
 def makeIntegerComparator(num_state_qubits, value, geq  = True, with_uncomp = True):
     """Build the comparator circuit."""
     or_gate = OR(2).to_gate()
+    
     qr_state = QuantumRegister(num_state_qubits, name='state')
     q_compare = QuantumRegister(1, name='compare')
     circuit = AncillaCircuit(qr_state, q_compare)
@@ -68,5 +69,6 @@ def makeIntegerComparator(num_state_qubits, value, geq  = True, with_uncomp = Tr
     else:
         if not geq:  # otherwise the condition is never satisfied
             circuit.x(q_compare)
-
+    # print(circuit.decompose())
+    #print(circuit.to_gate())
     return circuit
